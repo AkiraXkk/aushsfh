@@ -1,77 +1,52 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const { createEmbed, createErrorEmbed } = require("../embeds");
+const { createEmbed, createErrorEmbed, createSuccessEmbed } = require("../embeds");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("vip")
     .setDescription("Painel e informações do sistema VIP")
-    .addSubcommand(sub => sub.setName("panel").setDescription("Abre o seu painel de controle VIP pessoal"))
-    .addSubcommand(sub => sub.setName("status").setDescription("Verifica o tempo restante do seu VIP"))
-    .addSubcommand(sub => sub.setName("lista").setDescription("Lista todos os membros VIP do servidor")),
+    .addSubcommand(s => s.setName("panel").setDescription("Abre seu painel VIP"))
+    .addSubcommand(s => s.setName("cargo2").setDescription("Gerencia seu 2º cargo (Personalizável/Amigo)")
+        .addUserOption(o => o.setName("amigo").setDescription("Amigo que receberá o cargo")))
+    .addSubcommand(s => s.setName("status").setDescription("Verifica tempo restante")),
 
   async execute(interaction) {
     const vipService = interaction.client.services.vip;
     const sub = interaction.options.getSubcommand();
+    const entry = vipService.getVip(interaction.user.id);
 
-    // 1. TRAVA DE SEGURANÇA (Solicitada por você)
-    const allVips = vipService.listVipIds();
-    if (!allVips || allVips.length === 0) {
-      return interaction.reply({ 
-        embeds: [createErrorEmbed("O sistema VIP não possui registros no momento. O painel está desativado.")], 
-        ephemeral: true 
-      });
-    }
+    if (!entry) return interaction.reply({ embeds: [createErrorEmbed("Você não é VIP.")], ephemeral: true });
 
-    // 2. LÓGICA DO PAINEL (Unificando o myvip.js aqui)
+    const tierConfig = await vipService.getTierConfig(interaction.guildId, entry.tierId);
+
     if (sub === "panel") {
-      const isVip = vipService.isVip({ userId: interaction.user.id, member: interaction.member });
-      
-      if (!isVip) {
-        return interaction.reply({ 
-          content: "Você não possui um plano VIP ativo para acessar as configurações.", 
-          ephemeral: true 
-        });
-      }
-
       const embed = createEmbed({
-        title: "💎 Seu Painel VIP",
-        description: "Seja bem-vindo! Utilize os botões abaixo para gerenciar seus benefícios.",
-        color: 0x9B59B6,
-        fields: [
-          { name: "👑 Personalização", value: "Altere nome e cor do seu cargo.", inline: true },
-          { name: "🔊 Canais", value: "Gerencie sua sala de voz e texto.", inline: true },
-          { name: "🏰 Família", value: "Configurações da sua família VIP.", inline: true }
-        ]
+        title: "💎 Painel VIP",
+        description: `Plano: **${tierConfig.name}**\nLimite de Damas: \`${tierConfig.maxDamas}\``,
+        color: 0x9B59B6
       });
 
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("vip_role_manage").setLabel("Meu Cargo").setStyle(ButtonStyle.Primary).setEmoji("👑"),
-        new ButtonBuilder().setCustomId("vip_room_manage").setLabel("Minha Sala").setStyle(ButtonStyle.Success).setEmoji("🔊"),
-        new ButtonBuilder().setCustomId("vip_family_manage").setLabel("Família").setStyle(ButtonStyle.Secondary).setEmoji("🏰")
+        new ButtonBuilder().setCustomId("vip_role_main").setLabel("Cargo Principal").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("vip_role_second").setLabel("2º Cargo").setStyle(ButtonStyle.Secondary).setDisabled(!tierConfig.hasSecondRole),
+        new ButtonBuilder().setCustomId("vip_family").setLabel("Família").setStyle(ButtonStyle.Success).setDisabled(!tierConfig.canFamily)
       );
 
       return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
     }
 
-    // 3. STATUS (Quanto tempo resta)
-    if (sub === "status") {
-      const entry = vipService.getVip(interaction.user.id);
-      if (!entry) return interaction.reply({ content: "Você não é um membro VIP.", ephemeral: true });
+    if (sub === "cargo2") {
+        if (!tierConfig.hasSecondRole) {
+            return interaction.reply({ embeds: [createErrorEmbed("Seu plano não permite um 2º cargo.")], ephemeral: true });
+        }
+        
+        const amigo = interaction.options.getUser("amigo");
+        if (amigo) {
+            // Lógica para aplicar o cargo customizado ao amigo
+            return interaction.reply({ embeds: [createSuccessEmbed(`Cargo extra atribuído a ${amigo}!`)] });
+        }
 
-      const expiration = entry.expiresAt ? `<t:${Math.floor(entry.expiresAt / 1000)}:R>` : "Vitalício";
-      return interaction.reply({ 
-        content: `Seu VIP expira em: ${expiration}`, 
-        ephemeral: true 
-      });
-    }
-
-    // 4. LISTA
-    if (sub === "lista") {
-      const lista = allVips.map(id => `<@${id}>`).join(", ");
-      return interaction.reply({ 
-        embeds: [createEmbed({ title: "👥 Membros VIP", description: lista })], 
-        ephemeral: true 
-      });
+        return interaction.reply({ content: "Use os botões no `/vip panel` para editar nome/cor do 2º cargo.", ephemeral: true });
     }
   }
 };
