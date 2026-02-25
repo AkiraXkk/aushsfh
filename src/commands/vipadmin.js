@@ -1,20 +1,23 @@
 const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require("discord.js");
-const { createSuccessEmbed, createErrorEmbed, createEmbed } = require("../embeds");
+const { createSuccessEmbed } = require("../embeds");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("vipadmin")
     .setDescription("Administração total do sistema VIP")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    // ADICIONAR VIP
-    .addSubcommand(s => s.setName("add").setDescription("Dá VIP a um usuário")
-        .addUserOption(o => o.setName("usuario").setDescription("O usuário").setRequired(true))
-        .addIntegerOption(o => o.setName("dias").setDescription("Dias (vazio = permanente)"))
-        .addStringOption(o => o.setName("tier").setDescription("ID do Tier").setAutocomplete(true)))
-    // REMOVER VIP
-    .addSubcommand(s => s.setName("remove").setDescription("Remove o VIP de alguém")
-        .addUserOption(o => o.setName("usuario").setDescription("O usuário").setRequired(true)))
-    // CONFIGURAÇÃO DO SISTEMA (Vindo do antigo vipsetup)
+    // CONFIGURAÇÃO DOS TIERS (Regras completas)
+    .addSubcommand(s => s.setName("tier").setDescription("Configura as regras de um plano VIP")
+        .addStringOption(o => o.setName("id").setDescription("ID único (ex: gold)").setRequired(true))
+        .addStringOption(o => o.setName("nome").setDescription("Nome de exibição").setRequired(true))
+        .addNumberOption(o => o.setName("preco").setDescription("Preço").setRequired(true))
+        .addRoleOption(o => o.setName("cargo_principal").setDescription("Cargo fixo do cliente").setRequired(true))
+        .addIntegerOption(o => o.setName("dias").setDescription("Duração em dias (0 = Permanente)").setRequired(true))
+        .addIntegerOption(o => o.setName("limite_damas").setDescription("Qtd de Primeiras Damas permitidas").setRequired(true))
+        .addBooleanOption(o => o.setName("familia").setDescription("Pode criar família?").setRequired(true))
+        .addBooleanOption(o => o.setName("duplo_cargo").setDescription("Pode criar 2º cargo personalizável?").setRequired(true)))
+    
+    // SETUP DE CANAIS/CATEGORIAS
     .addSubcommand(s => s.setName("setup").setDescription("Configura categoria e cargo base")
         .addRoleOption(o => o.setName("cargo_base").setDescription("Cargo VIP principal"))
         .addChannelOption(o => o.setName("categoria").setDescription("Categoria das salas").addChannelTypes(ChannelType.GuildCategory))),
@@ -23,29 +26,30 @@ module.exports = {
     const vipService = interaction.client.services.vip;
     const sub = interaction.options.getSubcommand();
 
-    if (sub === "setup") {
-      const role = interaction.options.getRole("cargo_base");
-      const category = interaction.options.getChannel("categoria");
-      const patch = {};
-      if (role) patch.vipRoleId = role.id;
-      if (category) patch.vipCategoryId = category.id;
+    if (sub === "tier") {
+        const id = interaction.options.getString("id");
+        const config = {
+            name: interaction.options.getString("nome"),
+            price: interaction.options.getNumber("preco"),
+            roleId: interaction.options.getRole("cargo_principal").id,
+            days: interaction.options.getInteger("dias"),
+            maxDamas: interaction.options.getInteger("limite_damas"),
+            canFamily: interaction.options.getBoolean("familia"),
+            hasSecondRole: interaction.options.getBoolean("duplo_cargo")
+        };
 
-      await vipService.setGuildConfig(interaction.guildId, patch);
-      return interaction.reply({ embeds: [createSuccessEmbed("Configurações do sistema VIP atualizadas!")], ephemeral: true });
+        await vipService.updateTier(interaction.guildId, id, config);
+        
+        return interaction.reply({ 
+            embeds: [createSuccessEmbed(`**Plano ${config.name} configurado!**
+            • Preço: \`R$ ${config.price}\`
+            • Duração: ${config.days === 0 ? "♾️ Permanente" : config.days + " dias"}
+            • Limite Damas: \`${config.maxDamas}\`
+            • Família: ${config.canFamily ? "✅" : "❌"}
+            • 2º Cargo: ${config.hasSecondRole ? "✅" : "❌"}`)], 
+            ephemeral: true 
+        });
     }
-
-    if (sub === "add") {
-        const user = interaction.options.getUser("usuario");
-        const days = interaction.options.getInteger("dias");
-        const tier = interaction.options.getString("tier");
-        await vipService.addVip(user.id, { days, tierId: tier });
-        return interaction.reply({ embeds: [createSuccessEmbed(`VIP adicionado para ${user} com sucesso!`) ]});
-    }
-
-    if (sub === "remove") {
-        const user = interaction.options.getUser("usuario");
-        await vipService.removeVip(user.id);
-        return interaction.reply({ embeds: [createSuccessEmbed(`VIP de ${user} removido.`)] });
-    }
+    // ... manter lógica do subcomando setup enviada anteriormente
   }
 };
