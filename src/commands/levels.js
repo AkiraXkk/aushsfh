@@ -29,13 +29,23 @@ async function applyLevelRoles(member, nivelAnterior, novoNivel) {
   const cargoAntigoId = config[String(nivelAnterior)];
 
   try {
-    if (cargoAntigoId && member.roles.cache.has(cargoAntigoId)) {
-      await member.roles.remove(cargoAntigoId);
+    // Remover TODOS os cargos de nível que o usuário possa ter (stacking prevention)
+    const allLevelRoles = Object.values(config);
+    const rolesToRemove = allLevelRoles.filter(roleId => 
+      member.roles.cache.has(roleId) && roleId !== cargoNovoId
+    );
+
+    if (rolesToRemove.length > 0) {
+      await member.roles.remove(rolesToRemove);
     }
-    if (cargoNovoId) {
+
+    // Adicionar o novo cargo (se existir e se o usuário ainda não tiver)
+    if (cargoNovoId && !member.roles.cache.has(cargoNovoId)) {
       await member.roles.add(cargoNovoId);
     }
-  } catch (_) {}
+  } catch (error) {
+    console.error(`Erro ao aplicar cargos de nível para usuário ${member.id}:`, error);
+  }
 }
 
 async function addXp(userId, amount = 10) {

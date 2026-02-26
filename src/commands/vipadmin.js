@@ -7,6 +7,7 @@ const {
 } = require("discord.js");
 const { createSuccessEmbed, createErrorEmbed } = require("../embeds");
 const { getGuildConfig, setGuildConfig } = require("../config/guildConfig");
+const { checkCommandPermissions } = require("../utils/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -80,22 +81,26 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    // Verificar permissões usando o novo sistema
+    const permissionCheck = await checkCommandPermissions(interaction, {
+      adminOnly: false, // Permitir staff configurado
+      checkStaff: true,
+      checkChannel: true
+    });
+
+    if (!permissionCheck.allowed) {
+      return interaction.reply({
+        embeds: [createErrorEmbed(permissionCheck.reason)],
+        ephemeral: true,
+      });
+    }
+
     const vipService = interaction.client.services.vip;
     const familyService = interaction.client.services.family;
     const vipRoleManager = interaction.client.services.vipRole;
     const vipChannelManager = interaction.client.services.vipChannel;
     const logService = interaction.client.services.log;
     const sub = interaction.options.getSubcommand();
-
-    async function isAuthorizedStaff() {
-      if (!interaction.guild || !interaction.member) return false;
-      if (interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) return true;
-      const guildConfig = await getGuildConfig(interaction.guild.id);
-      const lista = guildConfig.authorizedVipStaff || [];
-      if (!Array.isArray(lista) || lista.length === 0) return false;
-      const possui = interaction.member.roles.cache.some((r) => lista.includes(r.id));
-      return possui;
-    }
 
     if (sub === "tier") {
       const id = interaction.options.getString("id");

@@ -71,10 +71,20 @@ function createVipRoleManager({ client, vipService, logger }) {
     const guildConfig = vipService.getGuildConfig(guild.id) || {};
     const separatorId = guildConfig.personalSeparatorRoleId;
 
+    // Organizar cargo VIP abaixo dos separadores configurados
     if (separatorId && botMember) {
       const separatorRole = await fetchRole(guild, separatorId);
       if (separatorRole && botMember.roles.highest.comparePositionTo(separatorRole) > 0) {
         await role.setPosition(separatorRole.position - 1).catch(() => {});
+      }
+    } else {
+      // Se não houver separador, posicionar abaixo do cargo VIP base
+      const baseVipRoleId = guildConfig.vipRoleId;
+      if (baseVipRoleId && botMember) {
+        const baseVipRole = await fetchRole(guild, baseVipRoleId);
+        if (baseVipRole && botMember.roles.highest.comparePositionTo(baseVipRole) > 0) {
+          await role.setPosition(baseVipRole.position - 1).catch(() => {});
+        }
       }
     }
 
