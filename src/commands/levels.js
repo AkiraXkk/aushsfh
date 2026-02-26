@@ -150,11 +150,11 @@ async function addXpForVoiceTick(member, minutos = 1) {
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("level")
+    .setName("rank")
     .setDescription("Sistema de níveis")
     .addSubcommand((sub) =>
       sub
-        .setName("rank")
+        .setName("view")
         .setDescription("Verifica seu nível e XP")
         .addUserOption((opt) => opt.setName("usuario").setDescription("Usuário (opcional)").setRequired(false))
     )
@@ -258,7 +258,7 @@ module.exports = {
       });
     }
 
-    if (sub === "rank") {
+    if (sub === "view") {
       const user = interaction.options.getUser("usuario") || interaction.user;
       const data = levels[user.id] || { xp: 0, level: 1 };
       const xpNeeded = data.level * 100;
