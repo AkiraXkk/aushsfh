@@ -1,5 +1,6 @@
 const { Events } = require("discord.js");
 const { logger } = require("../logger");
+const { getGuildConfig } = require("../config/guildConfig");
 
 module.exports = {
   name: Events.InteractionCreate,
@@ -70,6 +71,39 @@ module.exports = {
     if (!command) return;
 
     try {
+      if (interaction.guild) {
+        const guildConfig = await getGuildConfig(interaction.guild.id);
+        const bypassRoles = guildConfig.commandBypassRoleIds || [];
+        const hasBypass =
+          bypassRoles.length > 0 &&
+          interaction.member?.roles?.cache?.some((r) => bypassRoles.includes(r.id));
+
+        if (!hasBypass) {
+          const nome = interaction.commandName;
+          const canalId = interaction.channelId;
+
+          if (nome === "fun") {
+            const permitidos = guildConfig.allowedFunChannels || [];
+            if (permitidos.length > 0 && !permitidos.includes(canalId)) {
+              return interaction.reply({
+                content: "Este comando só pode ser usado nos canais de diversão configurados.",
+                ephemeral: true,
+              });
+            }
+          }
+
+          if (nome === "utility") {
+            const permitidos = guildConfig.allowedUtilityChannels || [];
+            if (permitidos.length > 0 && !permitidos.includes(canalId)) {
+              return interaction.reply({
+                content: "Este comando só pode ser usado nos canais de utilidade configurados.",
+                ephemeral: true,
+              });
+            }
+          }
+        }
+      }
+
       await command.execute(interaction);
     } catch (error) {
       logger.error({ err: error, command: interaction.commandName }, "Erro ao executar comando");

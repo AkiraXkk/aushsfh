@@ -40,7 +40,19 @@ function createFamilyService() {
               color: 0x9B59B6,
               reason: `Família criada por ${owner.user.tag}`
           });
-          await owner.roles.add(role);
+
+          const guildConfig = vipService.getGuildConfig(guild.id) || {};
+          const separatorId = guildConfig.familySeparatorRoleId;
+          const botMember = guild.members.me;
+
+          if (separatorId && botMember) {
+              const separatorRole = await guild.roles.fetch(separatorId).catch(() => null);
+              if (separatorRole && botMember.roles.highest.comparePositionTo(separatorRole) > 0) {
+                  await role.setPosition(separatorRole.position - 1).catch(() => {});
+              }
+          }
+
+          await owner.roles.add(role).catch(() => {});
       } catch (e) {
           throw new Error("Erro ao criar cargo. Verifique permissões do bot.");
       }
@@ -50,12 +62,14 @@ function createFamilyService() {
       let textChannelId = null;
       let voiceChannelId = null;
 
-      if (guildConfig?.vipCategoryId) {
+      const familyCategoryId = guildConfig?.familyCategoryId || guildConfig?.vipCategoryId;
+
+      if (familyCategoryId) {
           try {
               const text = await guild.channels.create({
                   name: `🏰・${name}`,
                   type: ChannelType.GuildText,
-                  parent: guildConfig.vipCategoryId,
+                  parent: familyCategoryId,
                   permissionOverwrites: [
                       { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
                       { id: role.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
@@ -67,7 +81,7 @@ function createFamilyService() {
               const voice = await guild.channels.create({
                   name: `🔊・${name}`,
                   type: ChannelType.GuildVoice,
-                  parent: guildConfig.vipCategoryId,
+                  parent: familyCategoryId,
                   permissionOverwrites: [
                       { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
                       { id: role.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] },
@@ -136,7 +150,7 @@ function createFamilyService() {
       let limit = 3;
       if (ownerMember) {
           const tier = await vipConfigService.getMemberTier(ownerMember);
-          limit = tier?.limits?.familyMembers || 3;
+          limit = tier?.maxFamilyMembers ?? tier?.limits?.familyMembers ?? 3;
       }
       limit += (family.boughtSlots || 0);
 

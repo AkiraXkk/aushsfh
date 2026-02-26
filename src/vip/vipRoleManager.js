@@ -43,6 +43,8 @@ function createVipRoleManager({ client, vipService, logger }) {
     const member = await fetchMember(guild, userId);
     if (!guild || !member) return { ok: false, reason: "guild_or_member_unavailable" };
 
+    const botMember = guild.members.me;
+
     const settings = vipService.getSettings(userId) || {};
     const existingRole = await fetchRole(guild, settings.roleId);
 
@@ -66,6 +68,16 @@ function createVipRoleManager({ client, vipService, logger }) {
 
     if (!role) return { ok: false, reason: "role_create_failed" };
 
+    const guildConfig = vipService.getGuildConfig(guild.id) || {};
+    const separatorId = guildConfig.personalSeparatorRoleId;
+
+    if (separatorId && botMember) {
+      const separatorRole = await fetchRole(guild, separatorId);
+      if (separatorRole && botMember.roles.highest.comparePositionTo(separatorRole) > 0) {
+        await role.setPosition(separatorRole.position - 1).catch(() => {});
+      }
+    }
+
     const needsEdit =
       role.name !== desiredName ||
       (desiredColor !== null && role.color !== desiredColor) ||
@@ -85,6 +97,9 @@ function createVipRoleManager({ client, vipService, logger }) {
     }
 
     if (!member.roles.cache.has(role.id)) {
+      if (botMember && botMember.roles.highest.comparePositionTo(role) <= 0) {
+        return { ok: false, reason: "insufficient_role_position" };
+      }
       await member.roles.add(role, `VIP auto assign for ${member.user.tag}`).catch(() => {});
     }
 
@@ -119,12 +134,16 @@ function createVipRoleManager({ client, vipService, logger }) {
     const guild = await fetchGuild(targetGuildId);
     if (!guild) return { ok: false, reason: "guild_unavailable" };
 
+    const botMember = guild.members.me;
+
     const settings = vipService.getSettings(userId) || {};
     if (!settings.roleId) return { ok: true, reason: "no_role_saved" };
 
     const role = await fetchRole(guild, settings.roleId);
     if (role) {
-      await role.delete(`VIP expired/removed for ${userId}`).catch(() => {});
+      if (!botMember || botMember.roles.highest.comparePositionTo(role) > 0) {
+        await role.delete(`VIP expired/removed for ${userId}`).catch(() => {});
+      }
     }
 
     await vipService.setSettings(userId, { roleId: null }).catch(() => {});

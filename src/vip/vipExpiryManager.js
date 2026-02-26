@@ -1,6 +1,6 @@
 const { logger } = require("../logger");
 
-function createVipExpiryManager({ client, vipService, vipRoleManager, vipChannelManager }) {
+function createVipExpiryManager({ client, vipService, vipRoleManager, vipChannelManager, familyService }) {
   async function cleanupVipUser(userId, vipEntry) {
     const guilds = client.guilds.cache.values();
 
@@ -11,8 +11,16 @@ function createVipExpiryManager({ client, vipService, vipRoleManager, vipChannel
         await vipRoleManager.deletePersonalRole(userId, { guildId }).catch(() => {});
       }
 
-      if (vipChannelManager?.archiveVipChannels) {
-        await vipChannelManager.archiveVipChannels(userId, { guildId }).catch(() => {});
+      if (vipChannelManager?.deleteVipChannels) {
+        await vipChannelManager.deleteVipChannels(userId, { guildId }).catch(() => {});
+      }
+
+      if (familyService) {
+        try {
+          await familyService.deleteFamily(guild, userId);
+        } catch {
+          // Sem família para esse usuário, ignorar
+        }
       }
 
       try {

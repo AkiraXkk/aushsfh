@@ -14,13 +14,12 @@ module.exports = {
         vipService: client.services.vip,
         vipRoleManager: client.services.vipRole,
         vipChannelManager: client.services.vipChannel,
+        familyService: client.services.family,
       });
 
       expiry.start({ intervalMs: 5 * 60 * 1000 });
     }
 
-    // Voice XP Loop
-    // Movido do index.js para o evento ready
     setInterval(async () => {
         const levelsCommand = client.commands.get("level");
         const economyCommand = client.commands.get("economy");
@@ -29,20 +28,23 @@ module.exports = {
         try {
             for (const guild of client.guilds.cache.values()) {
                 for (const state of guild.voiceStates.cache.values()) {
-                    if (state.member.user.bot) continue;
+                    const member = state.member;
+                    if (!member || member.user.bot) continue;
                     if (state.mute || state.deaf) continue;
                     if (!state.channelId) continue;
                     
-                    await levelsCommand.addXp(state.member.id, 60);
-                    
+                    const { subiuNivel, novoNivel, nivelAnterior } = await levelsCommand.addXpForVoiceTick(member, 1);
+                    if (subiuNivel && levelsCommand.applyLevelRoles) {
+                      await levelsCommand.applyLevelRoles(member, nivelAnterior, novoNivel);
+                    }
                     if (economyCommand.addCoins) {
-                        await economyCommand.addCoins(state.member.id, 20);
+                        await economyCommand.addCoins(member.id, 20);
                     }
                 }
             }
         } catch (e) {
             logger.error({ err: e }, "Erro no Voice XP");
         }
-    }, 60000); // 1 minuto
+    }, 60000);
   },
 };

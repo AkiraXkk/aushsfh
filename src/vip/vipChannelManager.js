@@ -23,6 +23,7 @@ function createVipChannelManager({ client, vipService, logger }) {
 
     // Verifica se já existem
     const settings = vipService.getSettings(userId) || {};
+    const personalRoleId = settings.roleId;
     let textChannel = settings.textChannelId
       ? await guild.channels.fetch(settings.textChannelId).catch(() => null)
       : null;
@@ -40,20 +41,34 @@ function createVipChannelManager({ client, vipService, logger }) {
         deny: [PermissionFlagsBits.ViewChannel],
       },
       {
+        id: client.user.id,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageChannels],
+      },
+    ];
+
+    if (personalRoleId) {
+      permissionOverwrites.push({
+        id: personalRoleId,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.Connect,
+          PermissionFlagsBits.Speak,
+          PermissionFlagsBits.ManageChannels,
+        ],
+      });
+    } else {
+      permissionOverwrites.push({
         id: member.id,
         allow: [
           PermissionFlagsBits.ViewChannel,
           PermissionFlagsBits.SendMessages,
           PermissionFlagsBits.Connect,
           PermissionFlagsBits.Speak,
-          PermissionFlagsBits.ManageChannels, // Permite editar nome/perms
+          PermissionFlagsBits.ManageChannels,
         ],
-      },
-      {
-        id: client.user.id,
-        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageChannels],
-      },
-    ];
+      });
+    }
 
     if (!textChannel) {
       textChannel = await guild.channels.create({

@@ -1,6 +1,6 @@
-const { SlashCommandBuilder } = require("discord.js");
+const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const { createSuccessEmbed, createErrorEmbed } = require("../embeds");
-const { config } = require("../config");
+const { setGuildConfig, getGuildConfig } = require("../config/guildConfig");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -11,6 +11,23 @@ module.exports = {
         .setName("setname")
         .setDescription("Altera o nome do bot")
         .addStringOption((opt) => opt.setName("nome").setDescription("Novo nome").setRequired(true))
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("comandos")
+        .setDescription("Configura canais e cargos para comandos")
+        .addChannelOption((opt) =>
+          opt.setName("canal_diversao").setDescription("Canal permitido para comandos de diversão").setRequired(false)
+        )
+        .addChannelOption((opt) =>
+          opt.setName("canal_utilidade").setDescription("Canal permitido para comandos de utilidade").setRequired(false)
+        )
+        .addRoleOption((opt) =>
+          opt
+            .setName("cargo_bypass")
+            .setDescription("Cargo que pode usar comandos em qualquer canal")
+            .setRequired(false)
+        )
     )
     .addSubcommand((sub) =>
       sub
@@ -30,7 +47,7 @@ module.exports = {
     // if (interaction.user.id !== OWNER_ID) ...
     
     // Por segurança, vamos usar permissão de Administrador do servidor onde o comando é executado.
-    if (!interaction.member.permissions.has("Administrator")) {
+    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({ embeds: [createErrorEmbed("Apenas administradores podem usar isso.")], ephemeral: true });
     }
 
@@ -55,6 +72,40 @@ module.exports = {
         } catch (error) {
             await interaction.reply({ embeds: [createErrorEmbed(`Erro ao alterar avatar: ${error.message}`)] });
         }
+    }
+
+    if (sub === "comandos") {
+      const canalDiversao = interaction.options.getChannel("canal_diversao");
+      const canalUtilidade = interaction.options.getChannel("canal_utilidade");
+      const cargoBypass = interaction.options.getRole("cargo_bypass");
+
+      const atual = await getGuildConfig(interaction.guildId);
+      const patch = {};
+
+      if (canalDiversao) {
+        const lista = new Set(atual.allowedFunChannels || []);
+        lista.add(canalDiversao.id);
+        patch.allowedFunChannels = Array.from(lista);
+      }
+
+      if (canalUtilidade) {
+        const lista = new Set(atual.allowedUtilityChannels || []);
+        lista.add(canalUtilidade.id);
+        patch.allowedUtilityChannels = Array.from(lista);
+      }
+
+      if (cargoBypass) {
+        const lista = new Set(atual.commandBypassRoleIds || []);
+        lista.add(cargoBypass.id);
+        patch.commandBypassRoleIds = Array.from(lista);
+      }
+
+      await setGuildConfig(interaction.guildId, patch);
+
+      return interaction.reply({
+        embeds: [createSuccessEmbed("Configuração de comandos atualizada.")],
+        ephemeral: true,
+      });
     }
   }
 };

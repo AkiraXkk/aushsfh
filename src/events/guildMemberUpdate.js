@@ -1,5 +1,6 @@
-const { Events } = require("discord.js");
+const { Events, PermissionFlagsBits } = require("discord.js");
 const { logger } = require("../logger");
+const { getGuildConfig } = require("../config/guildConfig");
 
 module.exports = {
   name: Events.GuildMemberUpdate,
@@ -12,25 +13,47 @@ module.exports = {
 
       if (!vip || !vipRole || !vipChannel) return;
 
-      const config = vip.getGuildConfig(newMember.guild.id);
-      const vipRoleId = config?.vipRoleId;
+      const vipConfig = vip.getGuildConfig(newMember.guild.id);
+      const vipRoleId = vipConfig?.vipRoleId;
       if (!vipRoleId) return;
 
       const hadVip = oldMember.roles.cache.has(vipRoleId);
       const hasVip = newMember.roles.cache.has(vipRoleId);
-      if (!hadVip || hasVip) return;
+      const guildConfig = await getGuildConfig(newMember.guild.id);
+      const generalChannelId = guildConfig.generalChannelId;
 
-      const entry = vip.getVip(newMember.id);
-      if (entry) {
-        await vip.removeVip(newMember.id).catch(() => {});
+      if (!hadVip && hasVip && generalChannelId) {
+        const canalGeral = await newMember.guild.channels.fetch(generalChannelId).catch(() => null);
+        if (canalGeral) {
+          await canalGeral.permissionOverwrites
+            .edit(newMember.id, {
+              [PermissionFlagsBits.AttachFiles]: true,
+              [PermissionFlagsBits.EmbedLinks]: true,
+            })
+            .catch(() => {});
+        }
       }
 
-      if (entry?.tierId) {
-        await newMember.roles.remove(entry.tierId).catch(() => {});
-      }
+      if (hadVip && !hasVip) {
+        if (generalChannelId) {
+          const canalGeral = await newMember.guild.channels.fetch(generalChannelId).catch(() => null);
+          if (canalGeral) {
+            await canalGeral.permissionOverwrites.delete(newMember.id).catch(() => {});
+          }
+        }
 
-      await vipRole.deletePersonalRole(newMember.id, { guildId: newMember.guild.id }).catch(() => {});
-      await vipChannel.archiveVipChannels(newMember.id, { guildId: newMember.guild.id }).catch(() => {});
+        const entry = vip.getVip(newMember.id);
+        if (entry) {
+          await vip.removeVip(newMember.id).catch(() => {});
+        }
+
+        if (entry?.tierId) {
+          await newMember.roles.remove(entry.tierId).catch(() => {});
+        }
+
+        await vipRole.deletePersonalRole(newMember.id, { guildId: newMember.guild.id }).catch(() => {});
+        await vipChannel.deleteVipChannels(newMember.id, { guildId: newMember.guild.id }).catch(() => {});
+      }
     } catch (e) {
       logger.error({ err: e }, "Erro no GuildMemberUpdate VIP cleanup");
     }

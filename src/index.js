@@ -16,9 +16,9 @@ function createClient() {
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
-      GatewayIntentBits.MessageContent, // Necessário para ler mensagens (XP)
-      GatewayIntentBits.GuildVoiceStates, // Necessário para XP de voz
-      GatewayIntentBits.GuildMembers // Necessário para boas-vindas
+      GatewayIntentBits.MessageContent,
+      GatewayIntentBits.GuildVoiceStates,
+      GatewayIntentBits.GuildMembers
     ],
   });
 }
@@ -42,9 +42,11 @@ async function main() {
 
 
   const vipStore = createVipStore({ filePath: config.vip.storePath });
+  client.services.vipConfig = createVipConfigManager();
   client.services.vip = createVipService({
     store: vipStore,
     logger,
+    configManager: client.services.vipConfig,
   });
   await client.services.vip.init();
   client.services.vipRole = createVipRoleManager({
@@ -57,9 +59,7 @@ async function main() {
     vipService: client.services.vip,
     logger,
   });
-  client.services.vipConfig = createVipConfigManager();
 
-  // Carrega eventos (substitui os listeners manuais abaixo)
   loadEvents(client);
 
   process.on("unhandledRejection", (reason) => {

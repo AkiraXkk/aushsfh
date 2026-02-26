@@ -5,17 +5,18 @@ module.exports = {
   async execute(message, client) {
     if (message.author.bot || !message.guild) return;
 
-    // XP System
     const levelsCommand = client.commands.get("level");
-    if (levelsCommand && typeof levelsCommand.addXp === "function") {
-        try {
-            const { leveledUp, newLevel } = await levelsCommand.addXp(message.author.id, 10);
-            if (leveledUp) {
-                await message.channel.send(`🎉 Parabéns ${message.author}! Você subiu para o nível **${newLevel}**!`);
-            }
-        } catch (err) {
-            // Ignore XP errors
-        }
-    }
+    if (!levelsCommand?.addXpForMessage) return;
+
+    try {
+      const membro = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
+      if (!membro) return;
+
+      const { subiuNivel, novoNivel, nivelAnterior } = await levelsCommand.addXpForMessage(membro);
+      if (subiuNivel && levelsCommand.applyLevelRoles) {
+        await levelsCommand.applyLevelRoles(membro, nivelAnterior, novoNivel);
+        await message.channel.send(`🎉 Parabéns ${message.author}! Você subiu para o nível **${novoNivel}**!`);
+      }
+    } catch (_) {}
   },
 };
