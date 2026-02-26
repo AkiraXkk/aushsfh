@@ -43,12 +43,25 @@ module.exports = {
         const userId = interaction.user.id;
 
         const balance = await economyService.getBalance(userId);
-        if ((balance.coins || 0) < cost) {
-            return interaction.reply({ embeds: [createErrorEmbed(`Saldo insuficiente! Você precisa de **${cost} 🪙** (Tem: ${balance.coins || 0}).`)], ephemeral: true });
+        const coins = balance.coins || 0;
+        if (coins < cost) {
+            return interaction.reply({
+                embeds: [
+                    createErrorEmbed(
+                        `Saldo insuficiente. Você precisa de **${cost} 🪙** e possui **${coins} 🪙**.\nUse **/work** e **/daily** para ganhar mais moedas.`
+                    ),
+                ],
+                ephemeral: true,
+            });
         }
 
-        // Desconta moedas
-        await economyService.removeCoins(userId, cost);
+        const ok = await economyService.removeCoins(userId, cost);
+        if (!ok) {
+            return interaction.reply({
+                embeds: [createErrorEmbed("Não foi possível debitar suas moedas. Tente novamente.")],
+                ephemeral: true,
+            });
+        }
 
         // Adiciona VIP
         // Se já for VIP, estende. Se não, cria.
