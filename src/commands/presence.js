@@ -36,15 +36,13 @@ module.exports = {
     .addSubcommand((sub) => sub.setName("view").setDescription("Mostra o presence salvo") ),
 
   async execute(interaction) {
-    // Somente DM
-    if (interaction.inGuild()) {
-      return interaction.reply({ embeds: [createErrorEmbed("Use este comando na DM comigo.")], ephemeral: true });
-    }
-
     // Somente dono (por segurança)
     const ownerId = process.env.OWNER_ID;
     if (ownerId && interaction.user.id !== ownerId) {
       return interaction.reply({ embeds: [createErrorEmbed("Apenas o dono do bot pode usar isso.")], ephemeral: true });
+    }
+    if (!ownerId) {
+      return interaction.reply({ embeds: [createErrorEmbed("OWNER_ID não configurado no .env.")], ephemeral: true });
     }
 
     const presenceService = interaction.client.services?.presence;

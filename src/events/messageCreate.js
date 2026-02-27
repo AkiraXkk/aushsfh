@@ -5,7 +5,7 @@ module.exports = {
   async execute(message, client) {
     if (message.author.bot || !message.guild) return;
 
-    const levelsCommand = client.commands.get("level");
+    const levelsCommand = client.commands.get("rank");
     if (!levelsCommand?.addXpForMessage) return;
 
     try {

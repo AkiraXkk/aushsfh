@@ -25,9 +25,9 @@ module.exports = {
     }
 
     setInterval(async () => {
-        const levelsCommand = client.commands.get("level");
-        const economyCommand = client.commands.get("economy");
-        if (!levelsCommand || !economyCommand) return;
+        const levelsCommand = client.commands.get("rank");
+        const economyService = client.services?.economy;
+        if (!levelsCommand || !economyService) return;
         
         try {
             for (const guild of client.guilds.cache.values()) {
@@ -41,8 +41,8 @@ module.exports = {
                     if (subiuNivel && levelsCommand.applyLevelRoles) {
                       await levelsCommand.applyLevelRoles(member, nivelAnterior, novoNivel);
                     }
-                    if (economyCommand.addCoins) {
-                        await economyCommand.addCoins(member.id, 20);
+                    if (economyService?.addCoins) {
+                        await economyService.addCoins(member.id, 20);
                     }
                 }
             }
