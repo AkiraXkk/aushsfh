@@ -22,6 +22,7 @@ module.exports = {
       sub
         .setName("set")
         .setDescription("Define o status e atividade do bot")
+        .addStringOption((opt) => opt.setName("text").setDescription("Texto da atividade").setRequired(true))
         .addStringOption((opt) => opt.setName("status").setDescription("online|idle|dnd|invisible").setRequired(false))
         .addStringOption((opt) =>
           opt
@@ -29,7 +30,6 @@ module.exports = {
             .setDescription("playing|streaming|listening|watching|competing")
             .setRequired(false)
         )
-        .addStringOption((opt) => opt.setName("text").setDescription("Texto da atividade").setRequired(true))
         .addStringOption((opt) => opt.setName("url").setDescription("URL (apenas streaming)").setRequired(false))
     )
     .addSubcommand((sub) => sub.setName("clear").setDescription("Remove o presence salvo (volta ao padrão)") )
