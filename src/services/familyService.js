@@ -329,6 +329,32 @@ function createFamilyService() {
       await familyStore.save(families);
   }
 
+  async function resetAll(guild) {
+      const families = await getAllFamilies();
+      for (const fam of Object.values(families)) {
+          try {
+              if (!guild) continue;
+              if (fam.roleId) {
+                  const role = await guild.roles.fetch(fam.roleId).catch(() => null);
+                  if (role) await role.delete().catch(() => {});
+              }
+              if (fam.textChannelId) {
+                  const ch = await guild.channels.fetch(fam.textChannelId).catch(() => null);
+                  if (ch) await ch.delete().catch(() => {});
+              }
+              if (fam.voiceChannelId) {
+                  const ch = await guild.channels.fetch(fam.voiceChannelId).catch(() => null);
+                  if (ch) await ch.delete().catch(() => {});
+              }
+          } catch {
+              // ignore
+          }
+      }
+
+      await familyStore.save({});
+      return true;
+  }
+
   async function demoteMember(userId, targetId) {
       const families = await getAllFamilies();
       const family = Object.values(families).find(f => f.ownerId === userId);
@@ -372,7 +398,8 @@ function createFamilyService() {
       decorateChannels,
       promoteMember,
       demoteMember,
-      transferOwnership
+      transferOwnership,
+      resetAll
   };
 }
 

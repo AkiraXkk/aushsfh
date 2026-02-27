@@ -10,7 +10,6 @@ function createLogService({ client }) {
       'diamante': 0x00ffff,  // Ciano
       'diamond': 0x00ffff,  // Ciano
       'imperial': 0x9b59b6,  // Roxo
-      'imperial': 0x9b59b6,  // Roxo
       'prata': 0xc0c0c0,    // Cinza prateado
       'silver': 0xc0c0c0,    // Cinza prateado
       'bronze': 0xcd7f32,   // Laranja bronze
@@ -86,22 +85,30 @@ function createLogService({ client }) {
       }
     }
 
+    const executorLabel = staffUser ? '🎫 Executor' : '🤖 Executor';
+    const executorValue = staffUser
+      ? `${staffUser.tag} (${staffUser.id})`
+      : 'Sistema';
+    const targetValue = targetUser
+      ? `${targetUser.tag} (${targetUser.id})`
+      : 'Desconhecido (N/A)';
+
     const fields = [
-      { 
-        name: '👤 Usuário', 
-        value: `${targetUser?.tag || 'Desconhecido'} (${targetUser?.id || 'N/A'})`, 
-        inline: true 
+      {
+        name: executorLabel,
+        value: executorValue,
+        inline: true,
       },
-      { 
-        name: '🎫 Staff', 
-        value: `${staffUser?.tag || 'Sistema'} (${staffUser?.id || 'N/A'})`, 
-        inline: true 
+      {
+        name: '👤 Alvo',
+        value: targetValue,
+        inline: true,
       },
-      { 
-        name: '💎 Plano', 
-        value: tierDisplay, 
-        inline: true 
-      }
+      {
+        name: '💎 Tier',
+        value: tierDisplay,
+        inline: true,
+      },
     ];
 
     if (duration !== undefined) {
@@ -139,8 +146,8 @@ function createLogService({ client }) {
     const embed = createEmbed({
       title: `${isSuccess ? '✅' : '❌'} VIP ${action}`,
       description: isSuccess 
-        ? `**${targetUser?.tag}** recebeu VIP **${action}** por **${staffUser?.tag || 'Sistema'}**.`
-        : `Falha ao ${action.toLowerCase()} VIP de **${targetUser?.tag}**.`,
+        ? `VIP **${action}** executado por **${staffUser?.tag || 'Sistema'}** para **${targetUser?.tag || 'Desconhecido'}**.`
+        : `Falha ao executar VIP **${action}** para **${targetUser?.tag || 'Desconhecido'}**.`,
       color: isSuccess ? tierColor : 0xe74c3c,
       fields,
       footer: transactionId ? { text: `Log de Auditoria • ID: ${transactionId}` } : { text: `Log de Auditoria` },

@@ -8,6 +8,10 @@ module.exports = {
   execute(readyClient, client) {
     logger.info({ user: readyClient.user.tag }, "Bot online");
 
+    if (client?.services?.presence?.applyPresence) {
+      client.services.presence.applyPresence(readyClient).catch(() => {});
+    }
+
     if (client?.services?.vip && client?.services?.vipRole && client?.services?.vipChannel) {
       const expiry = createVipExpiryManager({
         client,

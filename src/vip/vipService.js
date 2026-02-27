@@ -153,6 +153,23 @@ function createVipService({ store, logger, configManager }) {
     });
   }
 
+  async function resetGuildConfig(guildId) {
+    if (!guildId) throw new Error("guildId inválido");
+    state.guilds[guildId] = {};
+    await store.save(state);
+    return state.guilds[guildId];
+  }
+
+  async function resetAll() {
+    state = { vips: {}, settings: {}, guilds: {} };
+    await store.save(state);
+    return true;
+  }
+
+  function listSettingsUserIds() {
+    return Object.keys(state.settings || {});
+  }
+
   return {
     init,
     isVip,
@@ -170,6 +187,9 @@ function createVipService({ store, logger, configManager }) {
     removeDama,
     getTierConfig,
     updateTier,
+    resetGuildConfig,
+    resetAll,
+    listSettingsUserIds,
   };
 }
 

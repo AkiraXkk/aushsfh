@@ -28,6 +28,7 @@ const { loadEvents } = require("./loadEvents");
 const { createLogService } = require("./services/logService");
 const { createEconomyService } = require("./services/economyService");
 const { createFamilyService } = require("./services/familyService");
+const { createPresenceService } = require("./services/presenceService");
 
 async function main() {
   const client = createClient();
@@ -39,6 +40,7 @@ async function main() {
   client.services.log = createLogService({ client });
   client.services.economy = createEconomyService();
   client.services.family = createFamilyService();
+  client.services.presence = createPresenceService();
 
 
   const vipStore = createVipStore({ filePath: config.vip.storePath });
