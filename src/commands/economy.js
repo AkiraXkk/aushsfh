@@ -63,9 +63,6 @@ module.exports = {
 
     // WORK
     if (sub === "work") {
-      // Cooldown check needs to be stored somewhere. 
-      // EconomyService currently stores simple structure. 
-      // Let's rely on stored data structure. EconomyService.getBalance returns the whole object.
       const data = await economyService.getBalance(userId);
       const lastWork = data.lastWork || 0;
       const cooldown = 60 * 60 * 1000; // 1 hora
@@ -77,22 +74,7 @@ module.exports = {
       }
       
       const earnings = Math.floor(Math.random() * 200) + 50; // 50-250 coins
-      
-      // Update logic via direct store access in service would be better, but for now we rely on addCoins logic not overwriting other fields?
-      // Wait, createEconomyService's addCoins updates `coins` field. Does it preserve others?
-      // Looking at `economyService.js`: 
-      // await store.update(userId, (current) => { const data = current || { ... }; data.coins += amount; return data; });
-      // It preserves other fields if `current` is loaded.
-      // But we need to update `lastWork` too. `addCoins` doesn't do that.
-      // I should update `createEconomyService` to allow generic updates or add specific methods.
-      // For now, I will assume I can't easily update `lastWork` via `addCoins`.
-      // Let's assume I should update `economyService.js` to support this or just update the service now.
-      
-      // Temporary: Let's use a "custom update" if possible or add a method to service.
-      // I'll update the service in next step to support `setWorkCooldown` or generic update.
-      // For now, I'll assume I'll fix service.
-      
-      await economyService.work(userId, earnings); // I need to implement this in service
+      await economyService.work(userId, earnings);
 
       await interaction.reply({ 
           embeds: [createSuccessEmbed(`Você trabalhou duro e ganhou **${earnings} 🪙**!`)] 
@@ -112,7 +94,7 @@ module.exports = {
       }
       
       const earnings = 500;
-      await economyService.daily(userId, earnings); // Need to implement
+      await economyService.daily(userId, earnings);
 
       await interaction.reply({ 
           embeds: [createSuccessEmbed(`Você resgatou seu prêmio diário de **${earnings} 🪙**!`)] 
@@ -157,11 +139,4 @@ module.exports = {
         }
     }
   },
-  
-  // Compatibilidade com outros comandos que chamam addCoins direto
-  async addCoins(userId, amount) {
-      // Isso vai quebrar se não tiver acesso ao service. 
-      // Mas o index.js passa o service? Não, commands são carregados antes.
-      // Melhor remover essa função e fazer quem chama usar client.services.economy
-  }
 };

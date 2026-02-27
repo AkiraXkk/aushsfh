@@ -83,7 +83,7 @@ module.exports = {
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
-    const group = interaction.options.getSubcommandGroup();
+    const group = interaction.options.getSubcommandGroup(false);
     const families = await familyStore.load();
     const userId = interaction.user.id;
     const guildId = interaction.guildId;
@@ -156,5 +156,45 @@ module.exports = {
         }
         return;
     }
+
+    // Fallback: muitos subcomandos ainda não têm implementação completa.
+    // Isso evita "Interaction failed" no Discord.
+    return interaction.reply({
+      embeds: [createErrorEmbed("Este subcomando do sistema de família ainda não foi implementado.")],
+      ephemeral: true,
+    });
   }
+  ,
+
+  async handleButton(interaction) {
+    const id = interaction.customId;
+    if (!id.startsWith("family_btn_")) return;
+
+    // Painel ainda não está totalmente implementado: garantir resposta para não dar Interaction Failed
+    if (id === "family_btn_leave") {
+      return interaction.reply({ embeds: [createErrorEmbed("Ação de sair da família ainda não implementada pelo painel. Use o comando /family leave.")], ephemeral: true });
+    }
+
+    if (id === "family_btn_invite_menu") {
+      return interaction.reply({ embeds: [createErrorEmbed("Convites via painel ainda não implementados. Use o comando /family invite.")], ephemeral: true });
+    }
+
+    if (id === "family_btn_info") {
+      return interaction.reply({ embeds: [createErrorEmbed("Info via painel ainda não implementada. Use o comando /family info.")], ephemeral: true });
+    }
+
+    if (id === "family_btn_members") {
+      return interaction.reply({ embeds: [createErrorEmbed("Lista de membros via painel ainda não implementada. Use /family info.")], ephemeral: true });
+    }
+
+    if (id === "family_btn_bank") {
+      return interaction.reply({ embeds: [createErrorEmbed("Banco via painel ainda não implementado. Use /family bank balance/deposit/withdraw.")], ephemeral: true });
+    }
+
+    if (id === "family_btn_upgrade") {
+      return interaction.reply({ embeds: [createErrorEmbed("Upgrade via painel ainda não implementado. Use /family upgrade.")], ephemeral: true });
+    }
+
+    return interaction.reply({ embeds: [createErrorEmbed("Ação do painel ainda não implementada.")], ephemeral: true });
+  },
 };

@@ -63,7 +63,7 @@ module.exports = {
         ? member.roles.cache
             .filter(r => r.name !== "@everyone")
             .sort((a, b) => b.position - a.position)
-            .map(r => r)
+            .map(r => r.toString())
             .slice(0, 10)
             .join(", ") 
         : "Nenhum";

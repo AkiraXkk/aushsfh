@@ -46,6 +46,7 @@ module.exports = {
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
+    const logService = interaction.client.services.log;
 
     // CLEAR
     if (sub === "clear") {
@@ -59,6 +60,22 @@ module.exports = {
       
       try {
         const deleted = await interaction.channel.bulkDelete(amount, true);
+        
+        // Log da ação
+        if (logService) {
+          await logService.log(interaction.guild, {
+            title: "🧹 Mensagens Apagadas",
+            description: `**${interaction.user.tag}** apagou **${deleted.size}** mensagens em **${interaction.channel.name}**.`,
+            color: 0x3498db,
+            fields: [
+              { name: "👤 Moderador", value: interaction.user.tag, inline: true },
+              { name: "💬 Canal", value: interaction.channel.name, inline: true },
+              { name: "📊 Quantidade", value: `${deleted.size} mensagens`, inline: true }
+            ],
+            user: interaction.user
+          });
+        }
+
         await interaction.editReply({ 
             embeds: [createSuccessEmbed(`Foram apagadas **${deleted.size}** mensagens com sucesso.`)] 
         });
@@ -88,6 +105,22 @@ module.exports = {
       await interaction.deferReply();
       try {
         await interaction.guild.members.ban(user.id, { reason });
+        
+        // Log da ação
+        if (logService) {
+          await logService.log(interaction.guild, {
+            title: "🔨 Usuário Banido",
+            description: `**${user.tag}** foi banido por **${interaction.user.tag}**.`,
+            color: 0xFF0000,
+            fields: [
+              { name: "👤 Moderador", value: interaction.user.tag, inline: true },
+              { name: "👤 Usuário", value: user.tag, inline: true },
+              { name: "📝 Motivo", value: reason, inline: false }
+            ],
+            user: interaction.user
+          });
+        }
+
         await interaction.editReply({ 
             embeds: [createEmbed({
                 title: "🔨 Usuário Banido",
@@ -122,6 +155,22 @@ module.exports = {
       await interaction.deferReply();
       try {
         await member.kick(reason);
+        
+        // Log da ação
+        if (logService) {
+          await logService.log(interaction.guild, {
+            title: "🦶 Usuário Expulso",
+            description: `**${user.tag}** foi expulso por **${interaction.user.tag}**.`,
+            color: 0xFFA500,
+            fields: [
+              { name: "👤 Moderador", value: interaction.user.tag, inline: true },
+              { name: "👤 Usuário", value: user.tag, inline: true },
+              { name: "📝 Motivo", value: reason, inline: false }
+            ],
+            user: interaction.user
+          });
+        }
+
         await interaction.editReply({ 
             embeds: [createEmbed({
                 title: "🦶 Usuário Expulso",

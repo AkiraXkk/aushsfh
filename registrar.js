@@ -68,7 +68,31 @@ async function deployCommands() {
   try {
     console.log('\n🚀 Iniciando registro dos comandos de application...');
 
+    // Primeiro, limpa todos os comandos existentes para evitar duplicação
+    console.log('🧹 Limpando comandos antigos...');
     let data;
+    
+    if (GUILD_ID) {
+      // Limpa comandos do servidor específico
+      data = await rest.put(
+        Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+        { body: [] }
+      );
+      console.log(`✅ Limpos ${data.length} comandos antigos do servidor ${GUILD_ID}`);
+    } else {
+      // Limpa comandos globais
+      data = await rest.put(
+        Routes.applicationCommands(CLIENT_ID),
+        { body: [] }
+      );
+      console.log(`✅ Limpos ${data.length} comandos antigos globais`);
+    }
+
+    // Aguarda um momento para o Discord processar a limpeza
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Agora registra os novos comandos
+    console.log('\n📝 Registrando novos comandos...');
     if (GUILD_ID) {
       // Registrar para um servidor específico (desenvolvimento)
       console.log(`📡 Registrando comandos para o servidor ${GUILD_ID}...`);

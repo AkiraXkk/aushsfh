@@ -5,64 +5,142 @@ const { getGuildConfig } = require("../config/guildConfig");
 module.exports = {
   name: Events.InteractionCreate,
   async execute(interaction, client) {
+    // Função auxiliar para extrair prefixo do customId
+    function getCommandPrefix(customId) {
+      const parts = customId.split('_');
+      return parts[0]; // Pega a primeira parte antes do underscore
+    }
+
+    // Função auxiliar para encontrar e executar handler
+    async function executeHandler(interaction, handlerType, commandName = null) {
+      const customId = interaction.customId;
+      const prefix = commandName || getCommandPrefix(customId);
+      
+      // Tenta encontrar pelo prefixo específico
+      if (prefix && client.commands.has(prefix)) {
+        const command = client.commands.get(prefix);
+        const handlerMethod = `handle${handlerType}`;
+        
+        if (typeof command[handlerMethod] === "function") {
+          try {
+            await command[handlerMethod](interaction);
+            return true;
+          } catch (error) {
+            logger.error({ 
+              err: error, 
+              command: prefix, 
+              customId, 
+              handlerType 
+            }, `Erro ao processar ${handlerType}`);
+            return true;
+          }
+        }
+      }
+      
+      // Tenta handler genérico handleInteraction
+      if (prefix && client.commands.has(prefix)) {
+        const command = client.commands.get(prefix);
+        if (typeof command.handleInteraction === "function") {
+          try {
+            await command.handleInteraction(interaction);
+            return true;
+          } catch (error) {
+            logger.error({ 
+              err: error, 
+              command: prefix, 
+              customId,
+              handlerType: "handleInteraction" 
+            }, "Erro ao processar interação genérica");
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    }
+
     // Button Handler
     if (interaction.isButton()) {
-        const commands = client.commands.values();
-        for (const command of commands) {
-            if (typeof command.handleButton === "function") {
-                try {
-                    await command.handleButton(interaction);
-                    if (interaction.replied || interaction.deferred) return;
-                } catch (error) {
-                    logger.error({ err: error, command: command.data.name }, "Erro ao processar botão");
-                }
+      const handled = await executeHandler(interaction, "Button");
+      
+      if (!handled) {
+        // Fallback: tenta em todos os comandos
+        for (const [commandName, command] of client.commands) {
+          if (typeof command.handleButton === "function") {
+            try {
+              await command.handleButton(interaction);
+              if (interaction.replied || interaction.deferred) break;
+            } catch (error) {
+              logger.error({ 
+                err: error, 
+                command: commandName, 
+                customId: interaction.customId 
+              }, "Erro ao processar botão (fallback)");
             }
+          }
         }
-        return;
+      }
+      return;
     }
 
     // Modal Submit Handler
     if (interaction.isModalSubmit()) {
-        const commands = client.commands.values();
-        for (const command of commands) {
-            if (typeof command.handleModal === "function") {
-                try {
-                    await command.handleModal(interaction);
-                    if (interaction.replied || interaction.deferred) return;
-                } catch (error) {
-                    logger.error({ err: error, command: command.data.name }, "Erro ao processar modal");
-                }
+      const handled = await executeHandler(interaction, "Modal");
+      
+      if (!handled) {
+        // Fallback
+        for (const [commandName, command] of client.commands) {
+          if (typeof command.handleModal === "function") {
+            try {
+              await command.handleModal(interaction);
+              if (interaction.replied || interaction.deferred) break;
+            } catch (error) {
+              logger.error({ 
+                err: error, 
+                command: commandName, 
+                customId: interaction.customId 
+              }, "Erro ao processar modal (fallback)");
             }
+          }
         }
-        return;
+      }
+      return;
     }
 
     // Select Menu Handler (String, User, Role, Channel, Mentionable)
     if (interaction.isAnySelectMenu()) {
-        const commands = client.commands.values();
-        for (const command of commands) {
-            if (typeof command.handleSelectMenu === "function") {
-                try {
-                    await command.handleSelectMenu(interaction);
-                    if (interaction.replied || interaction.deferred) return;
-                } catch (error) {
-                    logger.error({ err: error, command: command.data.name }, "Erro ao processar menu de seleção");
-                }
+      const handled = await executeHandler(interaction, "SelectMenu");
+      
+      if (!handled) {
+        // Fallback
+        for (const [commandName, command] of client.commands) {
+          if (typeof command.handleSelectMenu === "function") {
+            try {
+              await command.handleSelectMenu(interaction);
+              if (interaction.replied || interaction.deferred) break;
+            } catch (error) {
+              logger.error({ 
+                err: error, 
+                command: commandName, 
+                customId: interaction.customId 
+              }, "Erro ao processar menu de seleção (fallback)");
             }
+          }
         }
-        return;
+      }
+      return;
     }
     
     // Autocomplete Handler
     if (interaction.isAutocomplete()) {
-        const command = client.commands.get(interaction.commandName);
-        if (!command || !command.autocomplete) return;
-        try {
-            await command.autocomplete(interaction);
-        } catch (error) {
-            logger.error({ err: error, command: interaction.commandName }, "Erro no Autocomplete");
-        }
-        return;
+      const command = client.commands.get(interaction.commandName);
+      if (!command || !command.autocomplete) return;
+      try {
+        await command.autocomplete(interaction);
+      } catch (error) {
+        logger.error({ err: error, command: interaction.commandName }, "Erro no Autocomplete");
+      }
+      return;
     }
 
     if (!interaction.isChatInputCommand()) return;

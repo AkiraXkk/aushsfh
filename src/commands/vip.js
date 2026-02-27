@@ -148,6 +148,33 @@ module.exports = {
       return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
     }
 
+    if (customId === "vip_role_main") {
+      return interaction.reply({
+        embeds: [createErrorEmbed("Edição do cargo principal ainda não implementada pelo painel.")],
+        ephemeral: true,
+      });
+    }
+
+    if (customId === "vip_role_second") {
+      if (!tier.hasSecondRole) {
+        return interaction.reply({ embeds: [createErrorEmbed("Seu plano não permite 2º cargo.")], ephemeral: true });
+      }
+      return interaction.reply({
+        embeds: [createErrorEmbed("Edição do 2º cargo ainda não implementada por este botão. Use `Gerenciar Cargo/Família`.")],
+        ephemeral: true,
+      });
+    }
+
+    if (customId === "vip_family") {
+      if (!tier.canFamily) {
+        return interaction.reply({ embeds: [createErrorEmbed("Seu plano não permite família.")], ephemeral: true });
+      }
+      return interaction.reply({
+        embeds: [createErrorEmbed("Gerenciamento de família por este botão ainda não implementado. Use `Gerenciar Cargo/Família`.")],
+        ephemeral: true,
+      });
+    }
+
     if (customId === "vip_manage_secondrole") {
       if (!tier.hasSecondRole || !tier.maxSecondRoleMembers) {
         return interaction.update({
@@ -195,6 +222,12 @@ module.exports = {
         components: [row],
       });
     }
+
+    // Fallback para qualquer botão vip_* não tratado
+    return interaction.reply({
+      embeds: [createErrorEmbed("Este botão do painel VIP ainda não foi implementado.")],
+      ephemeral: true,
+    });
   },
 
   async handleSelectMenu(interaction) {

@@ -120,4 +120,17 @@ module.exports = {
       }
     }
   },
+
+  async handleButton(interaction) {
+    const id = interaction.customId;
+    if (!id.startsWith("dama_cfg:")) return;
+
+    if (id === "dama_cfg:close") {
+      return interaction.update({ components: [], embeds: [createSuccessEmbed("Painel fechado.")] });
+    }
+
+    if (id === "dama_cfg:set_roles") {
+      return interaction.reply({ embeds: [createErrorEmbed("Configuração de cargos ainda não implementada.")], ephemeral: true });
+    }
+  },
 };

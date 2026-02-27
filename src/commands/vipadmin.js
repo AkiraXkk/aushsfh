@@ -99,6 +99,7 @@ module.exports = {
     const familyService = interaction.client.services.family;
     const vipRoleManager = interaction.client.services.vipRole;
     const vipChannelManager = interaction.client.services.vipChannel;
+    const vipConfig = interaction.client.services.vipConfig;
     const logService = interaction.client.services.log;
     const sub = interaction.options.getSubcommand();
 
@@ -116,7 +117,7 @@ module.exports = {
         hasSecondRole: interaction.options.getBoolean("duplo_cargo"),
       };
       try {
-        await vipService.updateTier(interaction.guildId, id, config);
+        await vipConfig.setGuildTier(interaction.guildId, id, config);
         const texto = [
           `**Plano ${config.name} configurado.**`,
           `Preço: \`R$ ${config.price}\` | Duração: ${config.days === 0 ? "♾️ Permanente" : config.days + " dias"}`,
@@ -174,9 +175,10 @@ module.exports = {
     }
 
     if (sub === "add") {
-      if (!(await isAuthorizedStaff())) {
+      const permissionCheck = await checkCommandPermissions(interaction, { checkStaff: true });
+      if (!permissionCheck.allowed) {
         return interaction.reply({
-          embeds: [createErrorEmbed("Você não está autorizado a conceder VIP manualmente.")],
+          embeds: [createErrorEmbed(permissionCheck.reason || "Você não está autorizado a conceder VIP manualmente.")],
           ephemeral: true,
         });
       }
@@ -191,26 +193,28 @@ module.exports = {
         await vipService.addVip(alvo.id, { days: duracaoDias || undefined, tierId });
 
         const membro = await interaction.guild.members.fetch(alvo.id).catch(() => null);
-        const vipConfig = vipService.getGuildConfig(interaction.guildId) || {};
+        const vipGuildConfig = vipService.getGuildConfig(interaction.guildId) || {};
 
-        if (vipConfig.vipRoleId && membro) {
-          await membro.roles.add(vipConfig.vipRoleId).catch(() => {});
+        if (vipGuildConfig.vipRoleId && membro) {
+          await membro.roles.add(vipGuildConfig.vipRoleId).catch(() => {});
         }
 
         if (vipRoleManager && membro) {
           await vipRoleManager.ensurePersonalRole(alvo.id, { guildId: interaction.guildId }).catch(() => {});
         }
 
-        if (logService) {
-          await logService.log(interaction.guild, {
-            title: "🎟 VIP concedido manualmente",
-            description: `${interaction.user} concedeu VIP para ${alvo}.`,
-            color: 0x2ecc71,
-            fields: [
-              { name: "Tier", value: tierId || "Padrão/atual", inline: true },
-              { name: "Duração", value: duracaoDias === 0 ? "Permanente" : `${duracaoDias} dia(s)`, inline: true },
-            ],
-            user: interaction.user,
+        const transactionId = `VIP_ADD_${Date.now()}_${alvo.id}`;
+        const tierConfig = tierId ? await vipConfig.getTierConfig(interaction.guildId, tierId) : null;
+
+        if (logService?.logVipAction) {
+          await logService.logVipAction(interaction.guild, {
+            action: "Adicionado",
+            targetUser: alvo,
+            staffUser: interaction.user,
+            tierConfig: tierConfig,
+            duration: duracaoDias,
+            paymentMethod: "manual",
+            transactionId: transactionId,
           });
         }
 
@@ -233,9 +237,10 @@ module.exports = {
     }
 
     if (sub === "remove") {
-      if (!(await isAuthorizedStaff())) {
+      const permissionCheck = await checkCommandPermissions(interaction, { checkStaff: true });
+      if (!permissionCheck.allowed) {
         return interaction.reply({
-          embeds: [createErrorEmbed("Você não está autorizado a remover VIP manualmente.")],
+          embeds: [createErrorEmbed(permissionCheck.reason || "Você não está autorizado a remover VIP manualmente.")],
           ephemeral: true,
         });
       }
@@ -258,22 +263,32 @@ module.exports = {
         }
 
         if (membro) {
-          const vipConfig = vipService.getGuildConfig(guildId) || {};
-          if (vipConfig.vipRoleId) {
-            await membro.roles.remove(vipConfig.vipRoleId).catch(() => {});
+          const vipGuildConfig = vipService.getGuildConfig(guildId) || {};
+          if (vipGuildConfig.vipRoleId) {
+            await membro.roles.remove(vipGuildConfig.vipRoleId).catch(() => {});
           }
           if (entrada?.tierId) {
-            await membro.roles.remove(entrada.tierId).catch(() => {});
+            const tierConfig = await vipConfig.getTierConfig(interaction.guildId, entrada.tierId).catch(() => null);
+            if (tierConfig?.roleId) {
+              await membro.roles.remove(tierConfig.roleId).catch(() => {});
+            }
           }
         }
 
         if (logService) {
-          await logService.log(interaction.guild, {
-            title: "🎟 VIP removido manualmente",
-            description: `${interaction.user} removeu o VIP de ${alvo}.`,
-            color: 0xe74c3c,
-            user: interaction.user,
-          });
+          const transactionId = `VIP_REMOVE_${Date.now()}_${alvo.id}`;
+          const tierConfig = entrada?.tierId ? await vipConfig.getTierConfig(interaction.guildId, entrada.tierId) : null;
+          
+          if (logService?.logVipAction) {
+            await logService.logVipAction(interaction.guild, {
+              action: "Removido",
+              targetUser: alvo,
+              staffUser: interaction.user,
+              tierConfig: tierConfig,
+              paymentMethod: "manual",
+              transactionId: transactionId,
+            });
+          }
         }
 
         return interaction.reply({

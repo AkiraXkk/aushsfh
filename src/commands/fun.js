@@ -77,10 +77,25 @@ module.exports = {
           return interaction.reply({ content: "O texto é muito longo (máx 2000 caracteres).", ephemeral: true });
       }
 
-      // Remove mentions if needed or allow them? Usually safer to remove unless admin.
-      // For simplicity, we send as is but ephemeral response to confirm.
+      // Validação básica de conteúdo
+      const blacklistedWords = ["@everyone", "@here", "<@&", "<@!"];
+      const containsBlacklist = blacklistedWords.some(word => text.includes(word));
       
-      await interaction.channel.send({ content: text });
+      if (containsBlacklist) {
+          return interaction.reply({ 
+            embeds: [createEmbed({
+              title: "❌ Conteúdo Bloqueado",
+              description: "O texto contém menções massivas ou conteúdo não permitido.",
+              color: 0xe74c3c
+            })],
+            ephemeral: true
+          });
+      }
+
+      // Remove formatação perigosa
+      const cleanText = text.replace(/`{3,}/g, '').replace(/\*\*(.*?)\*\*/g, '$1');
+
+      await interaction.channel.send({ content: cleanText });
       await interaction.reply({ content: "Mensagem enviada com sucesso!", ephemeral: true });
     }
 

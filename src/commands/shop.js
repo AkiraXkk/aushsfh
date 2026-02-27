@@ -1,8 +1,6 @@
 const { SlashCommandBuilder } = require("discord.js");
 const { createEmbed, createSuccessEmbed, createErrorEmbed } = require("../embeds");
 
-const VIP_PRICE_PER_DAY = 1000;
-
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("shop")
@@ -10,83 +8,129 @@ module.exports = {
     .addSubcommand((sub) =>
       sub
         .setName("vip")
-        .setDescription("Ver preços e comprar VIP")
+        .setDescription("Ver planos VIP disponíveis")
     )
     .addSubcommand((sub) =>
-        sub.setName("buy_vip").setDescription("Comprar dias de VIP").addIntegerOption(opt => opt.setName("dias").setDescription("Quantos dias?").setMinValue(1).setRequired(true))
+      sub
+        .setName("buy")
+        .setDescription("Comprar item da loja")
+        .addStringOption((opt) => 
+          opt.setName("item")
+            .setDescription("Item para comprar")
+            .setRequired(true)
+            .addChoices(
+              { name: "vip_days", value: "vip_days" },
+              { name: "role_color", value: "role_color" },
+              { name: "custom_name", value: "custom_name" }
+            )
+        )
+        .addIntegerOption((opt) => 
+          opt.setName("quantity")
+            .setDescription("Quantidade")
+            .setMinValue(1)
+            .setRequired(true)
+        )
     ),
 
   async execute(interaction) {
-    const sub = interaction.options.getSubcommand();
     const economyService = interaction.client.services.economy;
     const vipService = interaction.client.services.vip;
-    const vipRoleManager = interaction.client.services.vipRole;
+    const vipConfig = interaction.client.services.vipConfig;
+    const guildId = interaction.guildId;
+    const userId = interaction.user.id;
+    const sub = interaction.options.getSubcommand();
 
     if (sub === "vip") {
-        await interaction.reply({
-            embeds: [createEmbed({
-                title: "💎 Loja VIP",
-                description: "Compre acesso VIP e ganhe benefícios exclusivos!",
-                fields: [
-                    { name: "Preço", value: `${VIP_PRICE_PER_DAY} 🪙 por dia`, inline: true },
-                    { name: "Benefícios", value: "• Cargo Exclusivo\n• Sala Privada (Voz/Texto)\n• Comandos de Família" }
-                ],
-                color: 0x9B59B6,
-                footer: "Use /shop buy_vip [dias] para comprar"
-            })]
+      // Mostrar planos VIP disponíveis
+      const tiers = await vipConfig.getGuildTiers(guildId);
+      
+      if (!tiers || Object.keys(tiers).length === 0) {
+        return interaction.reply({
+          embeds: [createErrorEmbed("Não há planos VIP disponíveis neste servidor.")],
+          ephemeral: true,
         });
+      }
+
+      const fields = Object.entries(tiers).map(([tierId, tierData]) => ({
+        name: `💎 ${tierData.name || tierId}`,
+        value: `**${tierData.price || 0} WDA Coins** por dia\n` +
+               `📅 Duração: ${tierData.days === 0 ? 'Permanente' : `${tierData.days} dias`}\n` +
+               `🎁 Benefícios: ${tierData.maxDamas} Damas, Família: ${tierData.canFamily ? '✅' : '❌'}, Cargo Extra: ${tierData.hasSecondRole ? '✅' : '❌'}`
+      }));
+
+      return interaction.reply({
+        embeds: [createEmbed({
+          title: "💎 Planos VIP Disponíveis",
+          description: "Escolha seu plano e use `/vipbuy` para comprar!",
+          fields,
+          color: 0x9b59b6,
+          footer: { text: "Use /vipbuy [dias] para comprar" }
+        })],
+        ephemeral: true
+      });
     }
 
-    if (sub === "buy_vip") {
-        const days = interaction.options.getInteger("dias");
-        const cost = days * VIP_PRICE_PER_DAY;
-        const userId = interaction.user.id;
+    if (sub === "buy") {
+      const item = interaction.options.getString("item");
+      const quantity = interaction.options.getInteger("quantity");
 
+      if (item === "vip_days") {
+        // Redirecionar para o comando vipbuy aprimorado
+        return interaction.reply({
+          embeds: [createEmbed({
+            title: "💳 Compra de VIP",
+            description: "Para comprar dias de VIP, use o comando `/vipbuy`.\n\n" +
+                       "Ele oferece uma interface mais completa com todos os planos disponíveis e " +
+                       "opções de pagamento em WDA Coins ou R$.",
+            color: 0x3498db
+          })],
+          ephemeral: true
+        });
+      }
+
+      if (item === "role_color") {
+        const cost = quantity * 5000; // 5000 moedas por cor
         const balance = await economyService.getBalance(userId);
-        const coins = balance.coins || 0;
-        if (coins < cost) {
-            return interaction.reply({
-                embeds: [
-                    createErrorEmbed(
-                        `Saldo insuficiente. Você precisa de **${cost} 🪙** e possui **${coins} 🪙**.\nUse **/work** e **/daily** para ganhar mais moedas.`
-                    ),
-                ],
-                ephemeral: true,
-            });
-        }
-
-        const ok = await economyService.removeCoins(userId, cost);
-        if (!ok) {
-            return interaction.reply({
-                embeds: [createErrorEmbed("Não foi possível debitar suas moedas. Tente novamente.")],
-                ephemeral: true,
-            });
-        }
-
-        // Adiciona VIP
-        // Se já for VIP, estende. Se não, cria.
-        // Tier: Usa o padrão ou mantém o atual se já tiver.
-        // Para novos, vamos deixar sem tier específico (null) ou pegar um default se existir lógica pra isso.
-        // O addVip lida com extensão.
         
-        const result = await vipService.addVip(userId, { days });
+        if (balance.coins < cost) {
+          return interaction.reply({
+            embeds: [createErrorEmbed(`Saldo insuficiente! Você precisa de **${cost} 🪙** mas tem apenas **${balance.coins} 🪙**.`)],
+            ephemeral: true
+          });
+        }
+
+        await economyService.removeCoins(userId, cost);
         
-        // Garante cargo
-        if (vipRoleManager) {
-            await vipRoleManager.ensurePersonalRole(userId, { guildId: interaction.guildId });
+        return interaction.reply({
+          embeds: [createSuccessEmbed(`Você comprou **${quantity}** mudança(s) de cor de cargo por **${cost} 🪙**!\n\nUse \`/vip panel\` para personalizar seu cargo.`)],
+          ephemeral: true
+        });
+      }
+
+      if (item === "custom_name") {
+        const cost = quantity * 10000; // 10000 moedas por nome personalizado
+        const balance = await economyService.getBalance(userId);
+        
+        if (balance.coins < cost) {
+          return interaction.reply({
+            embeds: [createErrorEmbed(`Saldo insuficiente! Você precisa de **${cost} 🪙** mas tem apenas **${balance.coins} 🪙**.`)],
+            ephemeral: true
+          });
         }
 
-        // Log
-        if (interaction.client.services.log) {
-            await interaction.client.services.log.log(interaction.guild, {
-                title: "🛒 Compra na Loja",
-                description: `${interaction.user} comprou **${days} dias de VIP** por **${cost} 🪙**.`,
-                color: 0xF1C40F,
-                user: interaction.user
-            });
-        }
+        await economyService.removeCoins(userId, cost);
+        
+        return interaction.reply({
+          embeds: [createSuccessEmbed(`Você comprou **${quantity}** alteração(ões) de nome personalizado por **${cost} 🪙**!\n\nUse \`/vip panel\` para personalizar seu nome.`)],
+          ephemeral: true
+        });
+      }
 
-        await interaction.reply({ embeds: [createSuccessEmbed(`Você comprou **${days} dias** de VIP por **${cost} 🪙**!`)] });
+      // Item não reconhecido
+      return interaction.reply({
+        embeds: [createErrorEmbed("Item não encontrado na loja.")],
+        ephemeral: true
+      });
     }
   }
 };
